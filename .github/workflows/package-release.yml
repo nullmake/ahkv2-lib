@@ -49,15 +49,9 @@ jobs:
           fi
           mv version.json dist/
 
-      - name: Create ZIP archive
-        run: |
-          cd dist
-          zip -r ../ahkv2-lib-${{ env.CLEAN_TAG }}.zip .
-          cd ..
-
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ahkv2-lib-${{ env.CLEAN_TAG }}
-          path: ahkv2-lib-${{ env.CLEAN_TAG }}.zip
+          path: dist/
           retention-days: 7
