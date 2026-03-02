@@ -1,0 +1,63 @@
+name: Package Library from Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing Git Tag (e.g. v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout specific tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Set Environment Variables
+        run: |
+          INPUT_TAG="${{ github.event.inputs.tag_name }}"
+          echo "RAW_TAG=${INPUT_TAG}" >> $GITHUB_ENV
+          echo "CLEAN_TAG=${INPUT_TAG#v}" >> $GITHUB_ENV
+
+      - name: Create version.json
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          jq -n \
+            --arg tag "${{ env.RAW_TAG }}" \
+            --arg sha "$COMMIT_SHA" \
+            --arg date "$CREATED_AT" \
+            '{version: $tag, commit: $sha, build_date: $date}' > version.json
+
+      - name: Prepare distribution directory
+        run: |
+          mkdir -p dist/lib
+          if [ -d "source/lib" ]; then
+            cp -r source/lib/. dist/lib/
+          else
+            echo "Error: source/lib directory not found!"
+            exit 1
+          fi
+          mv version.json dist/
+
+      - name: Create ZIP archive
+        run: |
+          cd dist
+          zip -r ../ahkv2-lib-${{ env.CLEAN_TAG }}.zip .
+          cd ..
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ahkv2-lib-${{ env.CLEAN_TAG }}
+          path: ahkv2-lib-${{ env.CLEAN_TAG }}.zip
+          retention-days: 7
